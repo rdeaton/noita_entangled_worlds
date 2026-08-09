@@ -1,6 +1,24 @@
+/// Stub for the unwinder's resume entry point.
+///
+/// With `panic = "abort"` the prebuilt `panic_abort` for i686-pc-windows-gnu
+/// still emits landing pads referencing `_Unwind_Resume`, which nothing
+/// provides, so linking fails (rust-lang/rust#79609). Building std from source
+/// (`-Zbuild-std=panic_abort,std`) avoids it; this feature is the escape hatch
+/// for toolchains where that is not an option.
+///
+/// Note the name: on i686 PE, `extern "C"` symbols get a leading underscore, so
+/// this defines `__Unwind_Resume`, which is what the linker asks for (ld prints
+/// it as `_Unwind_Resume`, one underscore having been consumed by the display).
+/// This was previously spelled `_unwind_resume`, which produced
+/// `__unwind_resume` and therefore never satisfied anything.
+///
+/// Aborts rather than returning: nothing should unwind under `panic = "abort"`,
+/// so reaching this means the process is already in a state we cannot resume.
 #[cfg(feature = "pre2204")]
 #[unsafe(no_mangle)]
-pub extern "C" fn _unwind_resume() {}
+pub extern "C" fn _Unwind_Resume() -> ! {
+    std::process::abort()
+}
 
 use addr_grabber::{grab_addrs, grabbed_fns, grabbed_globals};
 use bimap::BiHashMap;

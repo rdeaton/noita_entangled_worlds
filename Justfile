@@ -21,13 +21,19 @@ build_luajit:
     cp target/luajit/src/
     bindgen ../target/luajit/src/lua.h -o src/lua_bindings.rs --dynamic-loading Lua51 --no-layout-tests
 
-# `rustup target add i686-pc-windows-gnu` first
+# `rustup target add i686-pc-windows-gnu` first.
+#
+# -Zbuild-std is required: ewext sets `panic = "abort"`, but the prebuilt
+# panic_abort for i686-pc-windows-gnu still references `_Unwind_Resume`, so
+# linking fails unless std is rebuilt from source (rust-lang/rust#79609).
+# Needs a nightly toolchain with the rust-src component.
+# If you cannot use build-std, `--features pre2204` supplies the symbol instead.
 build_ext:
-    cd ewext && cargo build --release --target=i686-pc-windows-gnu
+    cd ewext && cargo build --release --target=i686-pc-windows-gnu -Zbuild-std=panic_abort,std
     cp ewext/target/i686-pc-windows-gnu/release/ewext.dll quant.ew/ewext.dll
 
 build_ext_debug:
-    cd ewext && cargo build --target=i686-pc-windows-gnu
+    cd ewext && cargo build --target=i686-pc-windows-gnu -Zbuild-std=panic_abort,std
     cp ewext/target/i686-pc-windows-gnu/debug/ewext.dll quant.ew/ewext.dll
 
 run-rel: add_dylib_release build_ext
