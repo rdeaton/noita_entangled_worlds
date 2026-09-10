@@ -7,6 +7,17 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 
+# Match the release profile's panic strategy. ewext is a cdylib loaded into
+# Noita's process by a lua FFI call, so there is no rust frame above it to
+# unwind into and a debug build that unwinds is not testing what ships. It also
+# means the debug recipes link: `-Zbuild-std=panic_abort,std` and
+# `--features pre2204` both address `panic_abort`'s `_Unwind_Resume`
+# (rust-lang/rust#79609), and neither helps while this profile still pulls in
+# panic_unwind. Cargo ignores `panic` for test/bench, so host tests are
+# unaffected.
+[profile.dev]
+panic = "abort"
+
 [profile.release]
 lto = true
 strip = true # Not having that causes wine debugger to crash.

@@ -21,18 +21,34 @@ build_luajit:
     cp target/luajit/src/
     bindgen ../target/luajit/src/lua.h -o src/lua_bindings.rs --dynamic-loading Lua51 --no-layout-tests
 
-# `rustup target add i686-pc-windows-gnu` first.
+# `rustup target add i686-pc-windows-gnu` first. Stable is enough.
 #
-# -Zbuild-std is required: ewext sets `panic = "abort"`, but the prebuilt
-# panic_abort for i686-pc-windows-gnu still references `_Unwind_Resume`, so
-# linking fails unless std is rebuilt from source (rust-lang/rust#79609).
-# Needs a nightly toolchain with the rust-src component.
-# If you cannot use build-std, `--features pre2204` supplies the symbol instead.
+# If this fails with `undefined reference to _Unwind_Resume`: ewext sets
+# `panic = "abort"`, and the prebuilt panic_abort for i686-pc-windows-gnu still
+# emits landing pads referencing that symbol (rust-lang/rust#79609). Whether
+# the link succeeds anyway depends on your mingw runtime. Two escape hatches,
+# neither of which the default build should force on everyone:
+#   - `--features pre2204` supplies the symbol as an abort stub.
+#   - `just build_ext_nix` rebuilds std from source instead, which needs a
+#     nightly toolchain with rust-src.
 build_ext:
-    cd ewext && cargo build --release --target=i686-pc-windows-gnu -Zbuild-std=panic_abort,std
+    cd ewext && cargo build --release --target=i686-pc-windows-gnu
     cp ewext/target/i686-pc-windows-gnu/release/ewext.dll quant.ew/ewext.dll
 
 build_ext_debug:
+    cd ewext && cargo build --target=i686-pc-windows-gnu
+    cp ewext/target/i686-pc-windows-gnu/debug/ewext.dll quant.ew/ewext.dll
+
+# build_ext for toolchains whose mingw runtime does not supply `_Unwind_Resume`
+# - notably `nix develop .#cross-ewext`, where a plain build_ext does not link.
+# Rebuilding std from source drops the prebuilt panic_abort's references to it.
+# Needs nightly with the rust-src component; this is the same flag release.yml
+# uses, so it is also the closest local reproduction of the shipped DLL.
+build_ext_nix:
+    cd ewext && cargo build --release --target=i686-pc-windows-gnu -Zbuild-std=panic_abort,std
+    cp ewext/target/i686-pc-windows-gnu/release/ewext.dll quant.ew/ewext.dll
+
+build_ext_nix_debug:
     cd ewext && cargo build --target=i686-pc-windows-gnu -Zbuild-std=panic_abort,std
     cp ewext/target/i686-pc-windows-gnu/debug/ewext.dll quant.ew/ewext.dll
 
